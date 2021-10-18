@@ -398,7 +398,7 @@ instance IsSql92ColumnSchemaSyntax SqliteColumnSchemaSyntax where
   columnSchemaSyntax  ty defVal constraints collation =
     SqliteColumnSchemaSyntax
       (fromSqliteDataType ty <>
-       maybe mempty (\defVal -> emit " DEFAULT " <> parens (fromSqliteExpression defVal)) defVal <>
+       maybe mempty (\(SqliteExpressionSyntax syn) -> emit " DEFAULT " <> emit (BL.toStrict $ sqliteRenderSyntaxScript syn)) defVal <>
        foldMap (\constraint -> emit " " <> fromSqliteColumnConstraintDefinition constraint <> emit " ") constraints <>
        maybe mempty (\c -> emit " COLLATE " <> quotedIdentifier c) collation)
       (if sqliteDataTypeSerial ty then True else False)
