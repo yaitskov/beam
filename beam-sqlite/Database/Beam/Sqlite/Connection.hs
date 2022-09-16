@@ -208,19 +208,21 @@ instance FromBackendRow Sqlite a => FromRow (BeamSqliteRow a) where
       where
         FromBackendRowM fromBackendRow' = fromBackendRow :: FromBackendRowM Sqlite a
 
-        translateErrors :: Maybe Int -> SomeException -> Maybe SomeException
-        translateErrors col (SomeException e) =
+        translateErrors :: Maybe Int -> [SQLData] -> SomeException -> Maybe SomeException
+        translateErrors col rawRow (SomeException e) =
           case cast e of
             Just (ConversionFailed { errSQLType     = typeString
                                    , errHaskellType = hsString
                                    , errMessage     = msg }) ->
-              Just (SomeException (BeamRowReadError col (ColumnTypeMismatch hsString typeString ("conversion failed: " ++ msg))))
+              Just (SomeException (BeamRowReadError col (ColumnTypeMismatch hsString typeString
+                                                          ("conversion failed: " ++ msg ++ " for row: " ++ show rawRow))))
             Just (UnexpectedNull {}) ->
               Just (SomeException (BeamRowReadError col ColumnUnexpectedNull))
             Just (Incompatible { errSQLType     = typeString
                                , errHaskellType = hsString
                                , errMessage     = msg }) ->
-              Just (SomeException (BeamRowReadError col (ColumnTypeMismatch hsString typeString ("incompatible: " ++ msg))))
+              Just (SomeException (BeamRowReadError col (ColumnTypeMismatch hsString typeString
+                                                          ("incompatible: " ++ msg ++ " for row: " ++ show rawRow))))
             Nothing -> Nothing
 
         finish = pure
@@ -230,7 +232,7 @@ instance FromBackendRow Sqlite a => FromRow (BeamSqliteRow a) where
             RP $ ReaderT $ \ro -> StateT $ \st@(col, _) ->
             case runStateT (runReaderT (unRP field) ro) st of
               Ok (x, st') -> runStateT (runReaderT (unRP (next x)) ro) st'
-              Errors errs -> Errors (mapMaybe (translateErrors (Just col)) errs)
+              Errors errs -> Errors (mapMaybe (translateErrors (Just col) (snd st)) errs)
         step (Alt (FromBackendRowM a) (FromBackendRowM b) next) = do
           RP $ do
             let RP a' = runF a finish step
