@@ -1,3 +1,16 @@
+# 0.9.2.1
+
+## Added features
+
+ * Aeson 2.0 support
+
+# 0.9.2.0
+
+## Added features
+
+ * Heterogeneous variants of `like_` and `similarTo_`: `like_'` and `similarTo_'`
+ * GHC 9.2 and 9.0 support
+
 # 0.9.1.0
 
 ## Added features

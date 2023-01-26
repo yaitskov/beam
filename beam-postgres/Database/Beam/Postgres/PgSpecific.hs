@@ -115,7 +115,7 @@ module Database.Beam.Postgres.PgSpecific
 
   , pgNubBy_
 
-  , now_, ilike_
+  , now_, ilike_, ilike_'
   )
 where
 
@@ -168,13 +168,22 @@ now_ :: QExpr Postgres s LocalTime
 now_ = QExpr (\_ -> PgExpressionSyntax (emit "NOW()"))
 
 -- | Postgres @ILIKE@ operator. A case-insensitive version of 'like_'.
-ilike_ :: ( BeamSqlBackendIsString Postgres left
-          , BeamSqlBackendIsString Postgres right
-          )
-       => QExpr Postgres s left
-       -> QExpr Postgres s right
-       -> QExpr Postgres s Bool
-ilike_ (QExpr a) (QExpr b) = QExpr (pgBinOp "ILIKE" <$> a <*> b)
+ilike_
+  :: BeamSqlBackendIsString Postgres text
+  => QExpr Postgres s text
+  -> QExpr Postgres s text
+  -> QExpr Postgres s Bool
+ilike_ = ilike_'
+
+-- | Postgres @ILIKE@ operator. A case-insensitive version of 'like_''.
+ilike_'
+  :: ( BeamSqlBackendIsString Postgres left
+     , BeamSqlBackendIsString Postgres right
+     )
+  => QExpr Postgres s left
+  -> QExpr Postgres s right
+  -> QExpr Postgres s Bool
+ilike_' (QExpr a) (QExpr b) = QExpr (pgBinOp "ILIKE" <$> a <*> b)
 
 -- ** TsVector type
 
@@ -448,7 +457,7 @@ arrayOf_ q =
 data PgBoundType
   = Inclusive
   | Exclusive
-  deriving (Show, Generic)
+  deriving (Eq, Show, Generic)
 instance Hashable PgBoundType
 
 lBound :: PgBoundType -> ByteString
@@ -461,7 +470,7 @@ uBound Exclusive = ")"
 
 -- | Represents a single bound on a Range. A bound always has a type, but may not have a value
 -- (the absense of a value represents unbounded).
-data PgRangeBound a = PgRangeBound PgBoundType (Maybe a) deriving (Show, Generic)
+data PgRangeBound a = PgRangeBound PgBoundType (Maybe a) deriving (Eq, Show, Generic)
 
 inclusive :: a -> PgRangeBound a
 inclusive = PgRangeBound Inclusive . Just
@@ -480,7 +489,7 @@ unbounded = PgRangeBound Exclusive Nothing
 data PgRange (n :: *) a
   = PgEmptyRange
   | PgRange (PgRangeBound a) (PgRangeBound a)
-  deriving (Show, Generic)
+  deriving (Eq, Show, Generic)
 
 instance Hashable a => Hashable (PgRangeBound a)
 

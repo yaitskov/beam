@@ -13,43 +13,50 @@ rec {
     "beam-migrate-cli"
   ];
   ghcVersions = {
-    ghc865 = haskell.packages.ghc865Binary.extend (_: super: {
-      ghc = super.ghc.overrideAttrs (drv: {
-        passthru = drv.passthru // {
-          # TODO: Backport this to 21.05 since it's fixed on master.
-          haskellCompilerName = "ghc-8.6.5";
-        };
-      });
-      # Similar weird library issue as with beam-migrate-cli:
-      constraints-extras = haskell.lib.disableCabalFlag super.constraints-extras "build-readme";
-    });
-    ghc884 = haskell.packages.ghc884;
-    ghc8104 = haskell.packages.ghc8104;
-    ghc901 = haskell.packages.ghc901.extend (composeExtensionList [
+    ghc865 = haskell.packages.ghc865Binary.extend (composeExtensionList [
       (_: super: {
-        blaze-textual = haskell.lib.overrideCabal super.blaze-textual (_: {
-          # https://github.com/bos/blaze-textual/pull/14
-          src = fetchFromGitHub {
-            owner = "bos";
-            repo = "blaze-textual";
-            rev = "c93b53a4aaad5a6ee2ddf90010957981d75d3579";
-            sha256 = "0z0ky132j5bcs4i5wvsrd09ndny7jwsaxvaigw5jiszyibj0syyg";
-          };
-        });
-        cryptonite = haskell.lib.disableCabalFlag super.cryptonite "integer-gmp";
+       # Similar weird library issue as with beam-migrate-cli:
+        constraints-extras = haskell.lib.disableCabalFlag
+          super.constraints-extras
+          "build-readme";
       })
-      (applyToPackages haskell.lib.dontCheck [
+      (applyToPackages haskell.lib.doJailbreak [
         "mono-traversable"
       ])
+    ]);
+    inherit (haskell.packages) ghc884;
+    inherit (haskell.packages) ghc8107;
+    ghc901 = haskell.packages.ghc901.extend (composeExtensionList [
       (applyToPackages haskell.lib.doJailbreak [
-        "blaze-textual"
-        "cryptohash-md5"
-        "cryptohash-sha1"
-        "generic-monoid"
+        "pqueue"
+      ])
+    ]);
+    ghc921 = haskell.packages.ghc921.extend (composeExtensionList [
+      (applyToPackages haskell.lib.doJailbreak [
+        "postgresql-libpq"
+        "postgresql-simple"
         "pqueue"
       ])
       (pinHackageVersions {
-        memory = "0.16.0";
+        "some" = "1.0.3";
+        # This is not needed, but it tests the version bounds:
+        "vector-sized" = "1.5.0";
+      })
+      (pinHackageDirectVersions {
+        constraints-extras = {
+          pkg = "constraints-extras";
+          ver = "0.3.2.1";
+          sha256 = "03hsja50vzflqqmvvxgc9w32dqg51dlw8i0blpqb2ipv7njx4q2q";
+        };
+        hint = {
+          pkg = "hint";
+          ver = "0.9.0.5";
+          sha256 = "0x3yyq4vdpz4rqymbrq70swjpi0k6bnja0vhwlpgbgpzdb3ij7vc";
+        };
+      })
+      (self: _: {
+        # This is not needed, but it tests the version bounds:
+        aeson = self.aeson_2_0_1_0;
       })
     ]);
   };
@@ -60,18 +67,14 @@ rec {
 
   pinHackageVersions = versions: self: _:
     lib.mapAttrs (n: v: self.callHackage n v {}) versions;
+  pinHackageDirectVersions = versions: self: _:
+    lib.mapAttrs (n: v: self.callHackageDirect v {}) versions;
 
   # Extend a package set with Beam packages
   makeBeamGhc = ghc: ghc.extend (composeExtensionList [
     (self: _: lib.genAttrs (beamPackageNames ghc) (name:
       self.callCabal2nix name (./.. + "/${name}") {}
     ))
-    (applyToPackages haskell.lib.unmarkBroken [
-      "tmp-postgres"
-    ])
-    (applyToPackages haskell.lib.dontCheck [
-      "tmp-postgres"
-    ])
     (_: super: {
       # Add postgresql binaries for tests:
       beam-postgres = haskell.lib.addBuildTool super.beam-postgres postgresql;
